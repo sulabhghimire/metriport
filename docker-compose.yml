@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  django:
+    build: .
+    container_name: django
+    command: bash -c " python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8000 "
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - "8000:8000"
+    environment:
+      DEBUG: "True"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+      DJANGO_DB: postgresql
+      POSTGRES_HOST: pgdb
+      POSTGRES_NAME: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_PORT: 5432
+    depends_on:
+      - pgdb
+      - redis
+  celery:
+    build: .
+    command: celery -A core.celery worker --pool=solo -l info
+    volumes:
+      - .:/usr/src/app
+    environment:
+      DEBUG: "True"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+      DJANGO_DB: postgresql
+      POSTGRES_HOST: pgdb
+      POSTGRES_NAME: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_PORT: 5432
+    depends_on:
+      - django
+      - redis
+  celery-beat:
+    build: .
+    command: celery -A core beat -l INFO
+    volumes:
+      - .:/usr/src/app
+    environment:
+      DEBUG: "True"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+      DJANGO_DB: postgresql
+      POSTGRES_HOST: pgdb
+      POSTGRES_NAME: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_PORT: 5432
+    depends_on:
+      - django
+      - redis
+      - pgdb
+  pgdb:
+    image: postgres
+    container_name: pgdb
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data/
+  redis:
+    image: redis:alpine
+volumes:
+  pgdata: {}
